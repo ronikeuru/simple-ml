@@ -1,6 +1,7 @@
 #include "lin.h"
 #include "fun.h"
 
+
 #include <stdio.h>
 
 // Get matrix with allocated memory
