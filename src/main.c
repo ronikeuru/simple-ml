@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "fun.h"
 #include "nn.h"
 
 float xor_train_data[] = {
@@ -45,21 +46,14 @@ int main(void)
     NN nn = nn_init(layers, ARRAY_LEN(layers));
     NN g  = nn_init(layers, ARRAY_LEN(layers));
 
-    float eps = 1e-1;
     float rate = 1e-1;
 
-    float cost = nn_cost(nn, train_i, train_o);
-    printf("cost = %f\n", cost);
-    while (cost > 0.1f) {
-        // Calculate gradient
-        nn_fdiff(nn, g, train_i, train_o, eps);
-
-        // Apply gradient for learning
+    printf("cost = %f\n", nn_cost(nn, train_i, train_o));
+    for (size_t i = 0; i < 100*100; i++) {
+        nn_backprop(nn, g, train_i, train_o);
         nn_learn(nn, g, rate);
-        
-        cost = nn_cost(nn, train_i, train_o);
     }
-    printf("cost = %f\n", cost);
+    printf("cost = %f\n", nn_cost(nn, train_i, train_o));
 
     for (size_t i = 0; i < 2; i++) {
         for (size_t j = 0; j < 2; j++) {
@@ -68,7 +62,7 @@ int main(void)
 
             nn_forward(nn);
 
-            printf("%zu ^ %zu = %f\n", i, j, roundf(MAT_AT(NN_OUTPUT(nn), 0, 0)));
+            printf("%zu ^ %zu = %f\n", i, j, MAT_AT(NN_OUTPUT(nn), 0, 0));
         }
     }
 

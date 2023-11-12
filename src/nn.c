@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "nn.h"
+#include "fun.h"
 
 NN nn_alloc(size_t *layers, size_t depth)
 {
@@ -50,9 +51,19 @@ void nn_print(NN nn, const char *name)
     printf("]\n");
 }
 
+void nn_zero(NN nn)
+{
+    for (size_t i = 0; i < nn.depth; i++) {
+        mat_fill(nn.W[i], 0);
+        mat_fill(nn.b[i], 0);
+        mat_fill(nn.a[i], 0);
+    }
+    mat_fill(nn.a[nn.depth], 0);
+}
+
 void nn_rand(NN nn, float low, float high)
 {
-    for (size_t i = 0; i < nn.depth; ++i) {
+    for (size_t i = 0; i < nn.depth; i++) {
         mat_rand(nn.W[i], low, high);
         mat_rand(nn.b[i], low, high);
     }
@@ -93,6 +104,78 @@ void nn_fdiff(NN nn, NN g, Mat train_i, Mat train_o, float eps)
     }
 }
 
+void nn_backprop(NN nn, NN g, Mat train_i, Mat train_o)
+{
+    NN_ASSERT(train_i.rows == train_o.rows);
+    size_t n = train_i.rows;
+    NN_ASSERT(NN_OUTPUT(nn).cols == train_o.cols);
+
+    // Initialize the gradient
+    nn_zero(g);
+
+    for (size_t i = 0; i < n; ++i) {
+        // Copy training input into nn intput layer
+        mat_copy(NN_INPUT(nn), mat_row(train_i, i));
+
+        // Run forward pass
+        nn_forward(nn);
+
+        // Clean up old gradient activations
+        for (size_t j = 0; j <= nn.depth; j++) {
+            mat_fill(g.a[j], 0);
+        }
+
+        // Calculate difference (error) with nn output and training output
+        for (size_t j = 0; j < train_o.cols; j++) {
+            MAT_AT(NN_OUTPUT(g), 0, j) = MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(train_o, i, j);
+        }
+
+        // Run backwards through the nn layers
+        for (size_t l = nn.depth; l > 0; l--) {
+            // Go through the current activation output (a) columns
+            for (size_t j = 0; j < nn.a[l].cols; j++) {
+                // The activation output at current layer
+                float a = MAT_AT(nn.a[l], 0, j);
+                // The difference for the activation output
+                float da = MAT_AT(g.a[l], 0, j);
+
+                // Partial derivative for bias
+                MAT_AT(g.b[l-1], 0, j) += 2*da*a*(1 - a);
+
+                // Go through the previous activation output columns
+                for (size_t k = 0; k < nn.a[l-1].cols; k++) {
+                    // Previous activation
+                    float pa = MAT_AT(nn.a[l-1], 0, k);
+                    // Partial derivative for previous weights
+                    MAT_AT(g.W[l-1], k, j) += 2*da*a*(1 - a)*pa;
+
+                    // Previous weights
+                    float w = MAT_AT(nn.W[l-1], k, j);
+                    // Partial derivative for previous activation output
+                    MAT_AT(g.a[l-1], 0, k) += 2*da*a*(1 - a)*w;
+                }
+            }
+        }
+    }
+
+    // Divide everything with n
+    for (size_t i = 0; i < g.depth; i++) {
+        // Go through all the weights
+        for (size_t j = 0; j < g.W[i].rows; j++) {
+            for (size_t k = 0; k < g.W[i].cols; k++) {
+                MAT_AT(g.W[i], j, k) /= n;
+            }
+        }
+
+        // Go through all the biases
+        for (size_t j = 0; j < g.b[i].rows; j++) {
+            for (size_t k = 0; k < g.b[i].cols; k++) {
+                MAT_AT(g.b[i], j, k) /= n;
+            }
+        }
+    }
+}
+
 void nn_learn(NN nn, NN g, float rate)
 {
     for (size_t i = 0; i < nn.depth; i++) {
@@ -127,16 +210,4 @@ float nn_cost(NN nn, Mat train_i, Mat train_o)
     }
 
     return sq_error / n;
-}
-
-// Get random float value
-float rand_float(void)
-{
-    return (float) rand() / (float) RAND_MAX;
-}
-
-// Sigmoid function
-float sigmoidf(float x)
-{
-    return 1.f / (1.f + expf(-x));
 }

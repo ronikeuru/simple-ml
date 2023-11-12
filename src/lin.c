@@ -1,5 +1,6 @@
 #include "lin.h"
-#include "nn.h"
+#include "fun.h"
+
 
 #include <stdio.h>
 

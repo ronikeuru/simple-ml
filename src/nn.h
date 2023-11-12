@@ -38,18 +38,12 @@ NN nn_alloc(size_t *layers, size_t depth);
 void nn_print(NN nn, const char *name);
 #define NN_PRINT(nn) nn_print(nn, #nn);
 
+void nn_zero(NN nn);
 void nn_rand(NN nn, float low, float high);
 void nn_forward(NN nn);
-void nn_mdiff(NN nn, Mat m, Mat g, Mat train_i, Mat train_o, float cost, float eps);
-void nn_fdiff(NN nn, NN g, Mat train_i, Mat train_o, float eps);
+void nn_backprop(NN nn, NN g, Mat train_i, Mat train_o);
 void nn_learn(NN nn, NN g, float rate);
 
 float nn_cost(NN nn, Mat train_i, Mat train_o);
-
-// Get random float value
-float rand_float(void);
-
-// Sigmoid function
-float sigmoidf(float x);
 
 #endif
